@@ -123,6 +123,8 @@ class Reinforcement_Learning_algoritmhs:
                     count_a = 0
                     
                     for s_ in self.S_PLUS:
+#                        q += P[s[0], s[1], self.ACTION_TO_INT[a], s_[0], s_[1]] *\
+#                            (self.get_reward(None, None, s_) + GAMMA * V[s_])
                         
                         trans_P = P[s[0], s[1], self.ACTION_TO_INT[a], s_[0], s_[1]]
                         
@@ -164,7 +166,7 @@ class Reinforcement_Learning_algoritmhs:
     def policy_improvement(self, V, pi, GAMMA=0.9):
         
         stable = True
-        P = self.get_p()
+        P = self.get_P()
         
         for s in self.S:
             b = pi[s]
@@ -187,7 +189,7 @@ class Reinforcement_Learning_algoritmhs:
         stable = False  # policy-stable
         eval_improv_list = []
         while not stable:
-            V, i = self.pol_eval(V)
-            stable = self.pol_improv(V)
+            V, i = self.policy_evaluation(V, pi)
+            stable = self.policy_improvement(V, pi)
             eval_improv_list.append((V.copy(), i, pi.copy()))
-        return (eval_improv_list)
+        return eval_improv_list
