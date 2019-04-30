@@ -78,7 +78,7 @@ class Reinforcement_Learning_algoritmhs:
         return P
     
     # Random Policy 
-    def random_policy(self,THETA=0.001,GAMMA=0.9):
+    def random_policy(self,THETA=1e-6,GAMMA=0.9):
         
         P = self.get_P()
         V = np.zeros((4, 4), dtype=np.float16)  # grid values initialized to zeros
@@ -91,11 +91,11 @@ class Reinforcement_Learning_algoritmhs:
                 V[s] = 0
                 for a in self.A[s]:  # loop over allowed actions in the state
                     # accumulate utility for this action only
-                    utility = 0
+                    q = 0
                     for s_ in self.S_PLUS:
-                        utility += P[s[0], s[1], self.ACTION_TO_INT[a], s_[0], s_[1]] *\
+                        q += P[s[0], s[1], self.ACTION_TO_INT[a], s_[0], s_[1]] *\
                             (self.get_reward(None, None, s_) + GAMMA * V[s_])
-                    V[s] += self.pi_uniform(s, a) * utility
+                    V[s] += self.pi_uniform(s, a) * q
     
             #print(abs(v - V[s]))
             delta = max([delta, abs(v - V[s])])
@@ -105,7 +105,7 @@ class Reinforcement_Learning_algoritmhs:
     
     
     # Value Iteration
-    def value_iteration(self,THETA=0.001,GAMMA=0.9):
+    def values_iteration(self,THETA=1e-6,GAMMA=0.9):
         
         P = self.get_P()
         V = np.zeros((4, 4), dtype=np.float16)  # grid values initialized to zeros
@@ -116,18 +116,78 @@ class Reinforcement_Learning_algoritmhs:
             for s in self.S:  # loop over non-terminal states only
                 v = V[s]  # save old value
                 V[s] = 0
-                U = [] # list to store the estimated values for each action
+                Q = [] # list to store the estimated values for each action
                 for a in self.A[s]:  # loop over allowed actions in the state
                     # accumulate utility for this action only
-                    utility = 0
+                    q_a = 0
+                    count_a = 0
+                    
                     for s_ in self.S_PLUS:
-                        utility += P[s[0], s[1], self.ACTION_TO_INT[a], s_[0], s_[1]] *\
-                            (self.get_reward(None, None, s_) + GAMMA * V[s_])
-                            
-                    U.append(utility)
+                        
+                        trans_P = P[s[0], s[1], self.ACTION_TO_INT[a], s_[0], s_[1]]
+                        
+                        if trans_P != 0:
+                            q_a += (trans_P*\
+                                    (self.get_reward(None, None, s_)+GAMMA*V[s_]))
+                            count_a += 1
+                        
+                            print('\n State: ', s, ' New state: ', s_, ' P: ', trans_P)
+                                
+                    Q.append(q_a/count_a)
                 # select maximum utility value 
-                V[s] = max(U)
+                V[s] += max(Q)
             #print(abs(v - V[s]))
             delta = max([delta, abs(v - V[s])])
             V_list.append(V.copy())
+            
         return V_list
+    
+    def policy_evaluation(self, V, pi, THETA=1e-6, GAMMA=0.9):
+        
+        P = self.get_P()
+        
+        i = 0  # nr of repeats
+        delta = 1  # just to start the while loop
+        while delta > THETA:  # stop when delta < theta
+            delta = 0
+            for s in self.S:  # loop over non-terminal states only
+                v = V[s]  # save old value
+                V[s] = 0
+                for s_ in self.S_PLUS:
+                    V[s] += P[(*s, self.ACTION_TO_INT[pi[s]], *s_)] *\
+                        (self.get_reward(None, None, s_) + GAMMA * V[s_])
+                delta = max([delta, abs(v - V[s])])
+            i += 1
+        return V, i
+
+    
+    def policy_improvement(self, V, pi, GAMMA=0.9):
+        
+        stable = True
+        P = self.get_p()
+        
+        for s in self.S:
+            b = pi[s]
+            Q = {}
+            for a in self.A[s]:
+                Q[a] = 0
+                for s_ in self.S_PLUS:
+                    Q[a] += P[(*s, self.ACTION_TO_INT[a], *s_)] *\
+                        (self.get_reward(None, None, s_) + GAMMA * V[s_])
+            pi[s] = max(Q, key=Q.get)
+            if b != pi[s]:
+                stable = False
+                # with commenting out the line below, this becomes part 4 of assnmt
+                # break  # in "simple pol it" we only update one action
+        return stable
+    
+    
+    def simple_policy_iteration(self, pi):
+        V = np.zeros((4, 4), dtype=np.float16)  # grid values initialized to zeros
+        stable = False  # policy-stable
+        eval_improv_list = []
+        while not stable:
+            V, i = self.pol_eval(V)
+            stable = self.pol_improv(V)
+            eval_improv_list.append((V.copy(), i, pi.copy()))
+        return (eval_improv_list)
